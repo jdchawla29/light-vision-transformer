@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torchinfo import summary
 
 class Patchify(nn.Module):
 
@@ -35,7 +36,7 @@ class TransformerLayer(nn.Module):
     def forward(self, x):
 
         x = self.la1(x)
-        out = self.attention(x,x,x,need_weights=False) + x
+        out = self.attention(x,x,x,need_weights=False)[0] + x
         out = self.mlp(self.la2(out)) + out
 
         return out
@@ -46,23 +47,23 @@ class Encoder(nn.Module):
 
 
     def __init__(self,
-                 num_patches=144,
+                 num_unmasked=36,
                  patch_dim=27, 
                  embed_dim=192, 
                  num_heads=3, 
                  mlp_dim=384,
-                 num_layers=21, 
+                 num_layers=12, 
                  dropout=0.1):
     
         super(Encoder, self).__init__()
 
         self.proj = nn.Linear(patch_dim,embed_dim)
-        self.pos_emb = nn.Parameter(torch.zeros(1, num_patches+1, embed_dim))
+        self.pos_emb = nn.Parameter(torch.zeros(1, num_unmasked+1, embed_dim))
         enc_list = [TransformerLayer(embed_dim, num_heads, mlp_dim, dropout) for _ in range(num_layers)]
         self.enc = nn.Sequential(*enc_list)
         self.fc = nn.Sequential(
             nn.LayerNorm(embed_dim),
-            nn.Linear(embed_dim, embed_dim)
+            nn.Linear(embed_dim, embed_dim, bias=False)
         )
     
     
@@ -70,7 +71,6 @@ class Encoder(nn.Module):
         
         out = self.proj(x) + self.pos_emb
         out = self.enc(out)
-        out = out[:,0]
         out = self.fc(out)
         return out
 
@@ -109,3 +109,4 @@ class ViT_MAE(torch.nn.Module):
         features, backward_indexes = self.encoder(x)
         predicted_img, mask = self.decoder(features,  backward_indexes)
         return predicted_img, mask
+    
