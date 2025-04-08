@@ -238,7 +238,6 @@ class MAEDecoder(nn.Module):
         
         return x
 
-# Complete MAE model
 class MAE(nn.Module):
     def __init__(self, 
                  img_size=36,

@@ -2,7 +2,6 @@ import torchvision
 import torchvision.transforms as transforms
 from torchvision.transforms import autoaugment
 
-# Pre-training dataset preparation
 def get_pretraining_datasets(img_size=36):
     transform_train = transforms.Compose([
         transforms.Resize(img_size),

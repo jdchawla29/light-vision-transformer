@@ -1,5 +1,6 @@
 import torch
 import os
+from torch._C import device
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
@@ -8,6 +9,8 @@ import math
 
 from data import get_pretraining_datasets
 from model import MAE
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Set random seed for reproducibility
 def set_seed(seed):
@@ -31,14 +34,13 @@ def get_warmup_cosine_scheduler(optimizer, warmup_epochs, total_epochs):
 
 def train_mae(model, train_dataset, batch_size=1000, base_lr=1.5e-4, 
                 weight_decay=0.05, epochs=4000, warmup_epochs=400, 
-                save_dir='./checkpoints', save_interval=100):
+                save_dir='./checkpoints', save_interval=500):
     
     train_loader = DataLoader(
         train_dataset, 
         batch_size=batch_size, 
         shuffle=True, 
         num_workers=4,
-        pin_memory=True
     )
     
     lr = base_lr * batch_size / 256
@@ -81,13 +83,13 @@ def train_mae(model, train_dataset, batch_size=1000, base_lr=1.5e-4,
         
         # Save checkpoint
         if (epoch + 1) % save_interval == 0 or epoch == epochs - 1:
-            # torch.save({
-            #     'epoch': epoch + 1,
-            #     'model_state_dict': model.state_dict(),
-            #     'optimizer_state_dict': optimizer.state_dict(),
-            #     'scheduler_state_dict': scheduler.state_dict(),
-            #     'loss': avg_epoch_loss,
-            # }, os.path.join(save_dir, f'mae_epoch_{epoch+1}.pth'))
+            torch.save({
+                'epoch': epoch + 1,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'scheduler_state_dict': scheduler.state_dict(),
+                'loss': avg_epoch_loss,
+            }, os.path.join(save_dir, f'mae_epoch_{epoch+1}.pth'))
             
             # Save loss plot
             plt.figure(figsize=(10, 5))
@@ -105,14 +107,14 @@ def main():
     set_seed(42)
     
     # Parameters
-    batch_size = 1000 
+    batch_size = 1408 
     base_lr = 1.5e-4
     weight_decay = 0.05
     epochs = 4000
     warmup_epochs = 400
 
-    # Set device
-    device = torch.device("mps")
+
+    # Check which device is being used
     print(f"Using device: {device}")
     
     # Create model
@@ -127,12 +129,13 @@ def main():
     print(f"Decoder parameters: {decoder_params/1e6:.2f}M")
     print(f"Total parameters: {total_params/1e6:.2f}M")
     
-    # Get datasets
+    # Get dataset
     cifar10_train, _ = get_pretraining_datasets()
     train_dataset = cifar10_train
     model_name = "Mae-ViT-C10"
     
     print("Training on 'CIFAR-10")
+
     model, _ = train_mae(
         model, 
         train_dataset, 
